@@ -1,5 +1,6 @@
 package com.holybuckets.aerowaypoint;
 
+import com.holybuckets.aerowaypoint.client.config.AeroWaypointClientConfig;
 import com.holybuckets.foundation.event.BalmEventRegister;
 import com.holybuckets.aerowaypoint.block.ModBlocks;
 import com.holybuckets.aerowaypoint.block.be.ModBlockEntities;
@@ -19,9 +20,6 @@ public class CommonClass {
         if (isInitialized)
             return;
 
-        Constants.LOG.info("Hello from Common init on {}! we are currently in a {} environment!", com.holybuckets.aerowaypoint.platform.Services.PLATFORM.getPlatformName(), com.holybuckets.aerowaypoint.platform.Services.PLATFORM.getEnvironmentName());
-        Constants.LOG.info("The ID for diamonds is {}", BuiltInRegistries.ITEM.getKey(Items.DIAMOND));
-
         //Initialize Foundations
         com.holybuckets.foundation.FoundationInitializers.commonInitialize();
 
@@ -30,7 +28,6 @@ public class CommonClass {
         }
 
         //RegisterConfigs
-        //Balm.getConfig().registerConfig(ChallengeTempleConfig.class);
         AeroWaypointsMain.INSTANCE = new AeroWaypointsMain();
         BalmEventRegister.registerEvents();
         BalmEventRegister.registerCommands();

@@ -1,10 +1,10 @@
 package com.holybuckets.aerowaypoint;
 
 
+import com.holybuckets.aerowaypoint.core.WaypointManager;
 import com.holybuckets.foundation.event.EventRegistrar;
-import com.holybuckets.aerowaypoint.config.TemplateConfig;
+import com.holybuckets.aerowaypoint.config.AeroWaypointConfig;
 import net.blay09.mods.balm.api.Balm;
-import net.blay09.mods.balm.api.event.EventPriority;
 import net.blay09.mods.balm.api.event.server.ServerStartingEvent;
 
 /**
@@ -13,7 +13,7 @@ import net.blay09.mods.balm.api.event.server.ServerStartingEvent;
  */
 public class AeroWaypointsMain {
     private static boolean DEV_MODE = false;;
-    private static TemplateConfig CONFIG;
+    private static AeroWaypointConfig CONFIG;
     public static AeroWaypointsMain INSTANCE;
 
     public AeroWaypointsMain()
@@ -37,7 +37,7 @@ public class AeroWaypointsMain {
 
         //Events
         EventRegistrar registrar = EventRegistrar.getInstance();
-        //ChallengeBlockBehavior.init(registrar);
+        WaypointManager.init(registrar);
 
 
         //register local events
@@ -46,7 +46,7 @@ public class AeroWaypointsMain {
     }
 
     private void onServerStarting(ServerStartingEvent e) {
-        CONFIG = Balm.getConfig().getActiveConfig(TemplateConfig.class);
+        //CONFIG = Balm.getConfig().getActiveConfig(AeroWaypointConfig.class);
         //this.DEV_MODE = CONFIG.devMode;
         this.DEV_MODE = false;
     }

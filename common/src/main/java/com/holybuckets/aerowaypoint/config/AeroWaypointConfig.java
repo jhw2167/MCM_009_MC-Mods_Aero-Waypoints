@@ -6,7 +6,7 @@ import net.blay09.mods.balm.api.config.reflection.Config;
 
 
 @Config(Constants.MOD_ID)
-public class TemplateConfig {
+public class AeroWaypointConfig {
 
     @Comment("devMode==true disables portal spawns so the player can build and save new challenges")
     public boolean devMode = false;
@@ -14,11 +14,11 @@ public class TemplateConfig {
     public String lootRulesConfig = "config/challengeTempleslootRules.json";
 
 
-    public static class SatelliteBlockConfig {
+    public static class WaypointRendering {
 
         @Comment("Satellite will not operate below this y level")
         public int minSatelliteWorkingHeight = 256;
     }
 
-    public SatelliteBlockConfig displayConfig = new SatelliteBlockConfig();
+    public WaypointRendering displayConfig = new WaypointRendering();
 }
