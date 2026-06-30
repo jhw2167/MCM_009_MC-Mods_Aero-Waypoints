@@ -1,7 +1,6 @@
 package com.holybuckets.aerowaypoint.core;
 
 import com.holybuckets.foundation.HBUtil;
-import com.simibubi.create.AllEntityTypes;
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity;
 import com.simibubi.create.content.contraptions.Contraption;
 import net.minecraft.core.BlockPos;
@@ -13,7 +12,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.UUID;
 
-public class TrackedContrapForge implements ITrackedContrap {
+public class TrackedContrapFabric implements ITrackedContrap {
 
     private Contraption contraption;
 
@@ -27,11 +26,11 @@ public class TrackedContrapForge implements ITrackedContrap {
     }
 
     //noArgs
-    public TrackedContrapForge() {
+    public TrackedContrapFabric() {
     }
 
     //Create
-    public TrackedContrapForge(Contraption contraption) {
+    public TrackedContrapFabric(Contraption contraption) {
         this.contraption = contraption;
     }
 
@@ -61,7 +60,7 @@ public class TrackedContrapForge implements ITrackedContrap {
     @Override
     public ITrackedContrap generateContraption(Entity target) {
         if(target instanceof AbstractContraptionEntity abc) {
-            return new TrackedContrapForge(abc.getContraption());
+            return new TrackedContrapFabric(abc.getContraption());
         } else {
             //aero stuff
         }

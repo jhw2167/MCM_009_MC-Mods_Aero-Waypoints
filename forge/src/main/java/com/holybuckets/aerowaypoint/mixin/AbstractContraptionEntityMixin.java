@@ -1,5 +1,6 @@
 package com.holybuckets.aerowaypoint.mixin;
 
+import com.holybuckets.aerowaypoint.AeroWaypointsMain;
 import com.holybuckets.foundation.event.EventRegistrar;
 import com.holybuckets.foundation.event.custom.PlayerInteractEvent;
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity;
@@ -19,6 +20,7 @@ public class AbstractContraptionEntityMixin {
     private void hbs$onContraptionInteract(Player player, BlockPos localPos, Direction side,
                                            InteractionHand hand, CallbackInfoReturnable<Boolean> cir) {
         AbstractContraptionEntity self = (AbstractContraptionEntity) (Object) this;
+        AeroWaypointsMain.sendSimpleStringCreateEntityEventMessage(player, self, localPos);
         EventRegistrar.getInstance().onPlayerInteract(
             new PlayerInteractEvent.EntityInteract(
                 player, player.level(), hand, player.getItemInHand(hand),
@@ -26,4 +28,5 @@ public class AbstractContraptionEntityMixin {
             )
         );
     }
+
 }
