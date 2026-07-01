@@ -52,6 +52,14 @@ public interface ITrackedContrap {
 
     UUID getContraptionUuid();
 
+    BlockPos getStaticPosition();
+
+    void setStaticPosition(BlockPos pos);
+
+    long getStaticPositionStartTick();
+
+    void setStaticPositionStartTick(long tick);
+
     static ITrackedContrap getContraption(Entity target) {
         return GENERATOR.get(0).generateContraption(target);
     }

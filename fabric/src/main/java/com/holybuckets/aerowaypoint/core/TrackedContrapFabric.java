@@ -15,6 +15,8 @@ import java.util.UUID;
 public class TrackedContrapFabric implements ITrackedContrap {
 
     private Contraption contraption;
+    private BlockPos staticPosition;
+    private long staticPositionStartTick;
 
     @Override
     public void init(MinecraftServer server) {
@@ -55,6 +57,26 @@ public class TrackedContrapFabric implements ITrackedContrap {
     @Override
     public UUID getContraptionUuid() {
         return this.contraption.entity.getUUID();
+    }
+
+    @Override
+    public BlockPos getStaticPosition() {
+        return this.staticPosition;
+    }
+
+    @Override
+    public void setStaticPosition(BlockPos pos) {
+        this.staticPosition = pos;
+    }
+
+    @Override
+    public long getStaticPositionStartTick() {
+        return this.staticPositionStartTick;
+    }
+
+    @Override
+    public void setStaticPositionStartTick(long tick) {
+        this.staticPositionStartTick = tick;
     }
 
     @Override
