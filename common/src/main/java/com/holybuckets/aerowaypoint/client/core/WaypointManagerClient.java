@@ -6,7 +6,9 @@ import com.google.gson.JsonParser;
 import com.holybuckets.aerowaypoint.client.CommonClassClient;
 import com.holybuckets.aerowaypoint.client.config.AeroWaypointClientConfig.WaypointVisibility;
 import com.holybuckets.aerowaypoint.core.WaypointManager;
+import com.holybuckets.foundation.HBUtil;
 import com.holybuckets.foundation.client.ClientEventRegistrar;
+import com.holybuckets.foundation.client.core.MovingWaypoint;
 import com.holybuckets.foundation.event.custom.ClientLevelTickEvent;
 import com.holybuckets.foundation.event.custom.DetermineActiveWaypointEvent;
 import com.holybuckets.foundation.event.custom.SimpleMessageEvent;
@@ -20,6 +22,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,6 +33,11 @@ public class WaypointManagerClient {
 
     private final Set<UUID> trackedContraptions = ConcurrentHashMap.newKeySet();
     private final Set<BlockPos> staticContraptions = ConcurrentHashMap.newKeySet();
+
+    private final Map<UUID, Long> entityCreatedAt = new ConcurrentHashMap<>();
+    private final Map<BlockPos, Long> staticCreatedAt = new ConcurrentHashMap<>();
+
+    private static final long VISIBILITY_GRACE_MILLIS = 3000L;
 
     private boolean wasCrouching = false;
     private boolean crouchToggleVisible = true;
@@ -55,8 +63,16 @@ public class WaypointManagerClient {
         return Collections.unmodifiableSet(trackedContraptions);
     }
 
+    public Set<BlockPos> getStaticContraptions() {
+        return Collections.unmodifiableSet(staticContraptions);
+    }
+
     public boolean isTrackedContraption(UUID uuid) {
         return uuid != null && trackedContraptions.contains(uuid);
+    }
+
+    public boolean isStaticContraption(BlockPos pos) {
+        return pos != null && staticContraptions.contains(pos);
     }
 
 
@@ -67,20 +83,44 @@ public class WaypointManagerClient {
         JsonObject obj = parsed.getAsJsonObject();
         String action = obj.has("action") ? obj.get("action").getAsString() : null;
         if (action == null) return;
+        long now = System.currentTimeMillis();
         switch (action) {
             case "add" -> {
                 if (obj.has("uuid")) {
-                    try { trackedContraptions.add(UUID.fromString(obj.get("uuid").getAsString())); }
-                    catch (IllegalArgumentException ignored) {}
+                    try {
+                        UUID id = UUID.fromString(obj.get("uuid").getAsString());
+                        trackedContraptions.add(id);
+                        entityCreatedAt.put(id, now);
+                    } catch (IllegalArgumentException ignored) {}
+                } else if (obj.has("pos")) {
+                    BlockPos p = HBUtil.BlockUtil.stringToBlockPos(obj.get("pos").getAsString());
+                    if (p != null) {
+                        staticContraptions.add(p);
+                        staticCreatedAt.put(p, now);
+                    }
                 }
             }
             case "remove" -> {
                 if (obj.has("uuid")) {
-                    try { trackedContraptions.remove(UUID.fromString(obj.get("uuid").getAsString())); }
-                    catch (IllegalArgumentException ignored) {}
+                    try {
+                        UUID id = UUID.fromString(obj.get("uuid").getAsString());
+                        trackedContraptions.remove(id);
+                        entityCreatedAt.remove(id);
+                    } catch (IllegalArgumentException ignored) {}
+                } else if (obj.has("pos")) {
+                    BlockPos p = HBUtil.BlockUtil.stringToBlockPos(obj.get("pos").getAsString());
+                    if (p != null) {
+                        staticContraptions.remove(p);
+                        staticCreatedAt.remove(p);
+                    }
                 }
             }
-            case "clear" -> trackedContraptions.clear();
+            case "clear" -> {
+                trackedContraptions.clear();
+                staticContraptions.clear();
+                entityCreatedAt.clear();
+                staticCreatedAt.clear();
+            }
         }
     }
 
@@ -95,16 +135,26 @@ public class WaypointManagerClient {
     }
 
     private void onDetermineActiveWaypoint(DetermineActiveWaypointEvent event) {
-        UUID linked = event.getWaypoint().linkedEntityUuid;
-        if (linked == null) return;
-        if (!trackedContraptions.contains(linked)) return;
+        MovingWaypoint.Waypoint wp = event.getWaypoint();
+        if (!wp.isActive) return;
+
+        UUID linked = wp.linkedEntityUuid;
+        BlockPos target = wp.targetPos;
+
+        boolean isTrackedEntity = (linked != null) && trackedContraptions.contains(linked);
+        boolean isTrackedStatic = (linked == null) && target != null && staticContraptions.contains(target);
+        if (!isTrackedEntity && !isTrackedStatic) return;
+
+        long now = System.currentTimeMillis();
+        Long createdAt = isTrackedEntity ? entityCreatedAt.get(linked) : staticCreatedAt.get(target);
+        if (createdAt != null && now - createdAt < VISIBILITY_GRACE_MILLIS) return;
 
         if (CommonClassClient.CONFIG == null) return;
         WaypointVisibility vis = CommonClassClient.CONFIG.getWaypointVisibility();
         Player p = Minecraft.getInstance().player;
         if (p == null) return;
 
-        event.getWaypoint().isActive = isVisible(vis, p);
+        wp.isActive = isVisible(vis, p);
     }
 
     private boolean isVisible(WaypointVisibility vis, Player p) {
@@ -127,7 +177,7 @@ public class WaypointManagerClient {
         for (ItemStack stack : p.getInventory().offhand) {
             if (!stack.isEmpty() && stack.getItem() == goggles) return true;
         }
-        if(p.getMainHandItem().equals(new ItemStack(goggles))) return true;
+        if(p.getMainHandItem().getItem() == goggles) return true;
 
         return false;
     }

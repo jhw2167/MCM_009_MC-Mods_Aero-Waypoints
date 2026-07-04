@@ -18,6 +18,9 @@ public class TrackedContrapFabric implements ITrackedContrap {
     private BlockPos staticPosition;
     private long staticPositionStartTick;
 
+    private UUID savedUuid;
+    private BlockPos savedAnchor;
+
     @Override
     public void init(MinecraftServer server) {
         var registry = server.registryAccess().registryOrThrow(Registries.ENTITY_TYPE);
@@ -41,23 +44,41 @@ public class TrackedContrapFabric implements ITrackedContrap {
 
     @Override
     public Entity getContraptionEntity() {
-        return this.contraption.entity;
+        return this.contraption != null ? this.contraption.entity : null;
     }
 
     @Override
     public BlockPos getAnchorPos() {
-        return this.contraption.anchor;
+        if (this.contraption != null) return this.contraption.anchor;
+        return this.savedAnchor;
     }
 
     @Override
     public Vec3 getPos() {
-        return this.contraption.entity.position();
+        if (this.contraption != null && this.contraption.entity != null) return this.contraption.entity.position();
+        return this.savedAnchor != null ? Vec3.atCenterOf(this.savedAnchor) : null;
     }
 
     @Override
     public UUID getContraptionUuid() {
-        return this.contraption.entity.getUUID();
+        if (this.contraption != null && this.contraption.entity != null) return this.contraption.entity.getUUID();
+        return this.savedUuid;
     }
+
+
+    @Override
+    public String createTag() {
+        if(this.contraption!=null) {
+            String type = this.contraption.getType().toString().substring(0,3);
+            String uu = "STATIC";
+            if(this.contraption.entity!=null) {
+                uu = this.contraption.entity.getUUID().toString().substring(0, 4);
+            }
+            return "C:" + type + "@" + uu;
+        }
+        return "";
+    }
+
 
     @Override
     public BlockPos getStaticPosition() {
@@ -87,6 +108,16 @@ public class TrackedContrapFabric implements ITrackedContrap {
             //aero stuff
         }
         return null;
+    }
+
+    @Override
+    public ITrackedContrap restoreStatic(UUID uuid, BlockPos anchor, long startTick) {
+        TrackedContrapFabric tc = new TrackedContrapFabric();
+        tc.savedUuid = uuid;
+        tc.savedAnchor = anchor;
+        tc.staticPosition = anchor;
+        tc.staticPositionStartTick = startTick;
+        return tc;
     }
 
 }

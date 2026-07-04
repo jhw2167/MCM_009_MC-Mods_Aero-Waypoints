@@ -64,6 +64,13 @@ public interface ITrackedContrap {
         return GENERATOR.get(0).generateContraption(target);
     }
 
+    static ITrackedContrap createRestoredStatic(UUID uuid, BlockPos anchor, long startTick) {
+        return GENERATOR.get(0).restoreStatic(uuid, anchor, startTick);
+    }
+
     ITrackedContrap generateContraption(Entity target);
 
+    ITrackedContrap restoreStatic(UUID uuid, BlockPos anchor, long startTick);
+
+    String createTag();
 }

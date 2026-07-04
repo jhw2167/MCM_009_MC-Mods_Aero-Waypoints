@@ -9,6 +9,7 @@ import com.holybuckets.aerowaypoint.core.ITrackedContrap;
 import com.holybuckets.aerowaypoint.core.WaypointManager;
 import com.holybuckets.foundation.GeneralConfig;
 import com.holybuckets.foundation.HBUtil;
+import com.holybuckets.foundation.console.Messager;
 import com.holybuckets.foundation.event.EventRegistrar;
 import com.holybuckets.aerowaypoint.config.AeroWaypointConfig;
 import com.holybuckets.foundation.event.custom.PlayerInteractEvent;
@@ -34,9 +35,11 @@ import  static  com.holybuckets.foundation.HBUtil.PlayerUtil;
  * This class will init all major Manager instances and events for the mod
  */
 public class AeroWaypointsMain {
-    private static boolean DEV_MODE = false;;
+    private static boolean DEV_MODE = false;
     private static AeroWaypointConfig CONFIG;
+
     public static AeroWaypointsMain INSTANCE;
+    public static Messager MESSAGER;
 
     public AeroWaypointsMain()
     {
@@ -74,6 +77,7 @@ public class AeroWaypointsMain {
         //this.DEV_MODE = CONFIG.devMode;
         ITrackedContrap.init(GeneralConfig.getInstance());
         this.DEV_MODE = false;
+        MESSAGER = Messager.getInstance();
     }
 
 

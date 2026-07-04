@@ -27,7 +27,7 @@ public class AeroWaypointClientConfig {
     public static class WaypointRendering {
 
         @Comment("When waypoint beams are visible. Options: " +
-            "ALWAYS, GOGGLES, CROUCH, CROUCH_TOGGLE, GOGGLES_AND_CROUCH")
+            "ALWAYS, GOGGLES, CROUCH, GOGGLES_AND_CROUCH")
         public String waypointVisibility = WaypointVisibility.ALWAYS.name();
 
         @Comment("When waypoint name-tag labels are visible. Options: " +
@@ -54,8 +54,4 @@ public class AeroWaypointClientConfig {
             return fallback;
         }
     }
-
-
-
-    public WaypointRendering displayConfig = new WaypointRendering();
 }
