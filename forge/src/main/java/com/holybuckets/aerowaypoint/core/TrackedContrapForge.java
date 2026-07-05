@@ -33,10 +33,13 @@ public class TrackedContrapForge implements ITrackedContrap {
 
     //noArgs
     public TrackedContrapForge() {
+        super();
+        this.staticPositionStartTick = -1;
     }
 
     //Create
     public TrackedContrapForge(Contraption contraption) {
+        this();
         this.contraption = contraption;
     }
 
@@ -51,7 +54,8 @@ public class TrackedContrapForge implements ITrackedContrap {
     @Override
     public BlockPos getAnchorPos() {
         if (this.contraption != null) return this.contraption.anchor;
-        return this.savedAnchor;
+        if(this.savedAnchor!=null) return this.savedAnchor;
+        return this.staticPosition;
     }
 
     @Override
@@ -76,13 +80,10 @@ public class TrackedContrapForge implements ITrackedContrap {
                 uu = this.contraption.entity.getUUID().toString().substring(0, 4);
             }
             return "C:" + type + "@" + uu;
+        } else if(this.staticPosition!=null) {
+           return HBUtil.BlockUtil.positionToString(this.staticPosition);
         }
-        return "";
-    }
-
-    @Override
-    public BlockPos getStaticPosition() {
-        return this.staticPosition;
+        return "Contraption";
     }
 
     @Override
@@ -91,14 +92,25 @@ public class TrackedContrapForge implements ITrackedContrap {
     }
 
     @Override
+    public void setSavedUuid(UUID uuid) {
+        this.savedUuid = uuid;
+    }
+
+    @Override
     public long getStaticPositionStartTick() {
         return this.staticPositionStartTick;
+    }
+
+    @Override
+    public boolean isStatic() {
+        return this.staticPositionStartTick > -1;
     }
 
     @Override
     public void setStaticPositionStartTick(long tick) {
         this.staticPositionStartTick = tick;
     }
+
 
     @Override
     public ITrackedContrap generateContraption(Entity target) {
@@ -107,17 +119,16 @@ public class TrackedContrapForge implements ITrackedContrap {
         } else {
             //aero stuff
         }
-        return null;
+        return new TrackedContrapForge();
     }
 
+
     @Override
-    public ITrackedContrap restoreStatic(UUID uuid, BlockPos anchor, long startTick) {
-        TrackedContrapForge tc = new TrackedContrapForge();
-        tc.savedUuid = uuid;
-        tc.savedAnchor = anchor;
-        tc.staticPosition = anchor;
-        tc.staticPositionStartTick = startTick;
-        return tc;
+    public void restoreStatic(ITrackedContrap newTc) {
+        this.contraption = ((TrackedContrapForge)newTc).contraption;
+        this.savedUuid = newTc.getContraptionUuid();
+        this.savedAnchor = newTc.getAnchorPos();
+        this.staticPositionStartTick = -1;
     }
 
 }

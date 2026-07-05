@@ -1,11 +1,8 @@
 package com.holybuckets.aerowaypoint.core;
 
-import com.holybuckets.aerowaypoint.config.AeroWaypointConfig;
 import com.holybuckets.foundation.GeneralConfig;
-import com.holybuckets.foundation.event.EventRegistrar;
 import net.blay09.mods.balm.api.Balm;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Holder;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -52,11 +49,13 @@ public interface ITrackedContrap {
 
     UUID getContraptionUuid();
 
-    BlockPos getStaticPosition();
-
     void setStaticPosition(BlockPos pos);
 
+    void setSavedUuid(UUID uuid);
+
     long getStaticPositionStartTick();
+
+    boolean isStatic();
 
     void setStaticPositionStartTick(long tick);
 
@@ -64,13 +63,15 @@ public interface ITrackedContrap {
         return GENERATOR.get(0).generateContraption(target);
     }
 
-    static ITrackedContrap createRestoredStatic(UUID uuid, BlockPos anchor, long startTick) {
-        return GENERATOR.get(0).restoreStatic(uuid, anchor, startTick);
-    }
 
     ITrackedContrap generateContraption(Entity target);
 
-    ITrackedContrap restoreStatic(UUID uuid, BlockPos anchor, long startTick);
+    /**
+     * Restores a static contraption back to an active entity tracking ITrackedContrap
+     * @param newTc the new ITrackedContrap to restore
+     * @return
+     */
+    void restoreStatic(ITrackedContrap newTc);
 
     String createTag();
 }

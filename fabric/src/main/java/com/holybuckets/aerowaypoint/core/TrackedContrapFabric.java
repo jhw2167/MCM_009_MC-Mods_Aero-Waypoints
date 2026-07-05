@@ -81,11 +81,6 @@ public class TrackedContrapFabric implements ITrackedContrap {
 
 
     @Override
-    public BlockPos getStaticPosition() {
-        return this.staticPosition;
-    }
-
-    @Override
     public void setStaticPosition(BlockPos pos) {
         this.staticPosition = pos;
     }
@@ -110,14 +105,5 @@ public class TrackedContrapFabric implements ITrackedContrap {
         return null;
     }
 
-    @Override
-    public ITrackedContrap restoreStatic(UUID uuid, BlockPos anchor, long startTick) {
-        TrackedContrapFabric tc = new TrackedContrapFabric();
-        tc.savedUuid = uuid;
-        tc.savedAnchor = anchor;
-        tc.staticPosition = anchor;
-        tc.staticPositionStartTick = startTick;
-        return tc;
-    }
 
 }
