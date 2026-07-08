@@ -1,5 +1,7 @@
 package com.holybuckets.aerowaypoint.core;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.holybuckets.aerowaypoint.AeroWaypointsMain;
 import com.holybuckets.aerowaypoint.Constants;
@@ -7,14 +9,16 @@ import com.holybuckets.aerowaypoint.LoggerProject;
 import com.holybuckets.foundation.GeneralConfig;
 import com.holybuckets.foundation.HBUtil;
 import com.holybuckets.foundation.core.MovingWaypoint;
+import com.holybuckets.foundation.datastore.DataStore;
+import com.holybuckets.foundation.datastructure.ConcurrentLinkedSet;
 import com.holybuckets.foundation.event.EventRegistrar;
+import com.holybuckets.foundation.event.custom.DatastoreSaveEvent;
 import com.holybuckets.foundation.event.custom.PlayerInteractEvent;
 import com.holybuckets.foundation.event.custom.ServerTickEvent;
 import com.holybuckets.foundation.event.custom.TickType;
 import com.holybuckets.foundation.modelInterface.IManagedPlayer;
 import com.holybuckets.foundation.networking.SimpleStringMessage;
 import com.holybuckets.foundation.player.ManagedPlayer;
-import com.sun.source.tree.WhileLoopTree;
 import net.blay09.mods.balm.api.event.EventPriority;
 import net.blay09.mods.balm.api.event.LevelLoadingEvent;
 import net.blay09.mods.balm.api.event.server.ServerStartingEvent;
@@ -55,6 +59,10 @@ public class WaypointManager {
 
     private static final Map<Level, WaypointManager> managers = new HashMap<>();
     private static GeneralConfig CONFIG;
+
+     public static final Set<ITrackedContrap> globalContraptions = new ConcurrentLinkedSet<>();
+    private static boolean globalContraptionsLoaded = false;
+    private static final String GLOBAL_CONTRAPS_KEY = "globalContraptions";
 
 
     public static Item WAYPOINT_TOGGLE_ITEM = null;
@@ -172,9 +180,10 @@ public class WaypointManager {
         if (sp == null || contrap == null) return null;
         String id = PlayerUtil.getId(sp);
         if (id == null) return null;
+        if(!globalContraptions.add(contrap)) return null; //returns true if its a new contrap
 
         Set<ITrackedContrap> set = trackedContraptions.computeIfAbsent(id, k -> ConcurrentHashMap.newKeySet());
-        if (!set.add(contrap)) return contrap;
+        set.add(contrap);
 
         int colorId = (colorOverride>0) ? colorOverride : getNextColor();
         int waypointId = calculateWaypointId(PlayerUtil.getId(sp), colorId);
@@ -211,7 +220,7 @@ public class WaypointManager {
             if(playerContraptions==null)
                 trackedContraptions.put(playerId, ConcurrentHashMap.newKeySet());
             trackedContraptions.get(playerId).add(newContrap);
-            contrap.restoreStatic(newContrap);
+            contrap.restore(newContrap);
 
             Integer colorId = waypointColorsByPlayer.get(playerId).get(contrap);
             if (colorId == null) colorId = getNextColor();
@@ -237,10 +246,9 @@ public class WaypointManager {
     public boolean untrack(ServerPlayer sp, ITrackedContrap tc) {
         if (sp == null || tc == null) return false;
         String id = PlayerUtil.getId(sp);
-        if (id == null) return false;
-        Set<ITrackedContrap> set = trackedContraptions.get(id);
-        if (set == null) return false;
-        boolean removed = set.remove(tc);
+        Set<ITrackedContrap> playerContraps = trackedContraptions.get(id);
+        if (playerContraps == null) return false;
+        boolean removed = globalContraptions.remove(tc) && playerContraps.remove(tc);
         if (removed) {
             Map<ITrackedContrap, Integer> colors = waypointColorsByPlayer.get(id);
             if (colors != null) {
@@ -286,28 +294,31 @@ public class WaypointManager {
      * @return true to remove pending entry, false to wait.
      */
     private static final String TICKET_ID = "aero_waypoint_force_load";
-    public boolean restoreEntry(ServerPlayer sp, ServerLevel serverLevel, int colorId, UUID savedUuid, BlockPos savedStaticPos)
+    public boolean restoreEntry(ServerPlayer sp, ServerLevel serverLevel, int colorId, ITrackedContrap data)
     {
         String playerId = PlayerUtil.getId(sp);
+        BlockPos pos = data.getAnchorPos();
         if (playerId == null) return false;
-        if(savedStaticPos == null) return true;
 
-        ChunkAccess chunk = level.getChunk(savedStaticPos);
-        ChunkPos cp = new ChunkPos(savedStaticPos);
+
+        ChunkAccess chunk = level.getChunk(pos);
+        ChunkPos cp = new ChunkPos(pos);
         if(chunk == null) {
             HBUtil.ChunkUtil.forceLoadChunk( serverLevel, cp, TICKET_ID);
             return false;
-        } else if(HBUtil.ChunkUtil.isChunkForceLoaded(serverLevel, new ChunkPos(savedStaticPos))) {
+        } else if(HBUtil.ChunkUtil.isChunkForceLoaded(serverLevel, new ChunkPos(pos))) {
             HBUtil.ChunkUtil.unforceLoadChunk(serverLevel, cp, TICKET_ID);
         }
-        Entity contrapEntity = serverLevel.getEntity(savedUuid);
+        Entity contrapEntity = serverLevel.getEntity(data.getContraptionUuid());
         ITrackedContrap tc = ITrackedContrap.getContraption(contrapEntity);
         if(contrapEntity==null)
         {
-            tc.setStaticPosition(savedStaticPos);
+            tc.setStaticPosition(pos);
             tc.setStaticPositionStartTick(CONFIG.getTotalTickCount());
-            tc.setSavedUuid(savedUuid);
+        } else {
+            data.restore(tc);
         }
+
         this.track(sp, tc, colorId);
         return true;
     }
@@ -315,7 +326,7 @@ public class WaypointManager {
 
     private void tickPrune()
     {
-        if(HBUtil.PlayerUtil.getAllPlayers().isEmpty()) return;
+        if(HBUtil.PlayerUtil.getAllPlayers().isEmpty() || ManagedPlayer.PLAYERS.isEmpty()) return;
         List<ServerPlayer> players = HBUtil.PlayerUtil.getAllPlayers();
 
         long now = level != null ? level.getGameTime() : 0L;
@@ -334,40 +345,44 @@ public class WaypointManager {
                     continue;
                 }
                 else if(entityGone && tc.isStatic()) {
-                    //proceed
+                    //proceed to static checks
                 }
                 else {  //contraption entity alive and well
                     continue;
                 }
 
-                if (tc.getAnchorPos() != null)
+                if (tc.getAnchorPos() == null) continue;
+
+                //check if the block is loaded and if it is air
+                if (level != null && level.isLoaded(tc.getAnchorPos()))
                 {
-                    //check if the block is loaded and if it is air
-                    if (level != null && level.isLoaded(tc.getAnchorPos()))
-                    {
-                        List<Entity> entities = level.getEntities((Entity) null,  new AABB(tc.getAnchorPos()),
-                            (e) -> !( (e instanceof LivingEntity) || (e instanceof ItemEntity)) );
+                    List<Entity> entities = level.getEntities((Entity) null,  new AABB(tc.getAnchorPos()),
+                        (e) -> !( (e instanceof LivingEntity) || (e instanceof ItemEntity)) );
+                    if(entities.isEmpty()) {
+                        //no entities, check if the block is air
+                    } else {
                         Entity e = entities.get(0);
                         if(ITrackedContrap.isValidContraption(e)) {
                             ITrackedContrap newTc = ITrackedContrap.getContraption(e);
-                            tc.restoreStatic(newTc);
+                            this.tryReactivateStatic(newTc);
                             continue;
                         }
                     }
 
-                    if(level.getBlockState(tc.getAnchorPos()).isAir()) {
-                        expireStatic(player, playerId, tc);
-                        it.remove();
-                        continue;
-                    }
+                }
 
-                    long age = now - tc.getStaticPositionStartTick();
-                    if (age > STATIC_WAYPOINT_LIFETIME_TICKS) {
-                        expireStatic(player, playerId, tc);
-                        it.remove();
-                        continue;
-                    }
 
+                if(level.getBlockState(tc.getAnchorPos()).isAir()) {
+                    expireStatic(player, playerId, tc);
+                    it.remove();
+                    continue;
+                }
+
+                long age = now - tc.getStaticPositionStartTick();
+                if (age > STATIC_WAYPOINT_LIFETIME_TICKS) {
+                    expireStatic(player, playerId, tc);
+                    it.remove();
+                    continue;
                 }
 
             }
@@ -399,8 +414,8 @@ public class WaypointManager {
             }
         }
 
-        LOG.info("Aero: contraption transitioned to static waypoint at {} for player {} (color {})",
-            anchor, playerId, colorId);
+        LoggerProject.logInfo("005002", String.format("Contraption waypoint: %s, %s transitioned to static for player %s (color %s)",
+            tc.createTag(), anchor, playerId, colorId));
     }
 
     private void expireStatic(ServerPlayer player, String playerId, ITrackedContrap tc)
@@ -451,6 +466,7 @@ public class WaypointManager {
         reg.registerOnLevelLoad(WaypointManager::onLevelLoad, EventPriority.High);
         reg.registerOnServerTick(TickType.ON_20_TICKS, WaypointManager::on20Ticks);
         reg.registerOnPlayerInteract(PlayerInteractEvent.EntityInteract.class, WaypointManager::onPlayerEntityInteract);
+        reg.registerOnDataSave(WaypointManager::onDataSave);
 
         PlayerContrapWaypointData.init();
     }
@@ -462,22 +478,67 @@ public class WaypointManager {
     }
 
 
-    private static void onServerStart(ServerStartingEvent event) {
-        managers.clear();
+    private static void onServerStart(ServerStartingEvent event)
+    {
         CONFIG = GeneralConfig.getInstance();
+        managers.values().forEach(WaypointManager::clear);
+        managers.clear();
+
+        globalContraptions.clear();
+        globalContraptionsLoaded = false;
+
         WAYPOINT_TOGGLE_ITEM = HBUtil.ItemUtil.itemNameToItem("create:goggles");
     }
 
     private static void onServerStopped(ServerStoppedEvent event) {
-        for (WaypointManager manager : managers.values()) {
-            manager.clear();
-        }
-        managers.clear();
+
     }
 
     private static void onLevelLoad(LevelLoadingEvent.Load event) {
+        if(event.getLevel().isClientSide()) return;
         WaypointManager.init((Level) event.getLevel());
+        loadSavedContraptions();
     }
+
+    private static void loadSavedContraptions()
+    {
+        if (globalContraptionsLoaded) return;
+        DataStore ds = CONFIG.getDataStore();
+        if (ds == null) return;
+        globalContraptionsLoaded = true;
+
+        JsonElement raw = ds.getOrCreateWorldSaveData(Constants.MOD_ID).get(GLOBAL_CONTRAPS_KEY);
+        if (raw == null || !raw.isJsonArray()) return;
+        List<JsonElement> arr = raw.getAsJsonArray().asList();
+        for (JsonElement e : arr) {
+            JsonObject obj = e.getAsJsonObject();
+            UUID id = UUID.fromString(obj.get("id").getAsString());
+            UUID entityId = obj.has("entityId") ? UUID.fromString(obj.get("entityId").getAsString()) : null;
+            BlockPos lastPos = HBUtil.BlockUtil.stringToBlockPos(obj.get("lastPos").getAsString());
+            ITrackedContrap tc = ITrackedContrap.createContraption(id, entityId, lastPos);
+            globalContraptions.add(tc);
+        }
+
+
+    }
+    //DataSaveEvent, datastoreSave, saveData, onSaveEvent
+    private static void onDataSave(DatastoreSaveEvent event)
+    {
+        JsonArray contrapsJson = new JsonArray();
+        for (ITrackedContrap tc : globalContraptions)
+        {
+            JsonObject json = new JsonObject();
+            //add id, entityId (nullable) and lastPos
+            json.addProperty("id", tc.getId().toString());
+            if(tc.getContraptionEntity()!=null)
+                json.addProperty("entityId", tc.getContraptionEntity().getUUID().toString());
+            json.addProperty("lastPos", HBUtil.BlockUtil.positionToString(tc.getAnchorPos()));
+            contrapsJson.add(json);
+        }
+        event.getDataStore().getOrCreateWorldSaveData(Constants.MOD_ID)
+            .addProperty(GLOBAL_CONTRAPS_KEY, contrapsJson);
+    }
+
 
     private static void on20Ticks(ServerTickEvent event) {
         for (WaypointManager manager : managers.values()) {
@@ -505,9 +566,10 @@ public class WaypointManager {
         private final List<PendingEntry> pending = new ArrayList<>();
 
         static class PendingEntry {
+            UUID id;
             String levelId;
             int colorId;
-            UUID uuid;
+            UUID contrapId;
             BlockPos blockPos;
             long startTick;
             boolean isStatic() { return blockPos != null; }
@@ -544,10 +606,13 @@ public class WaypointManager {
                 Level lvl = HBUtil.LevelUtil.toServerLevel(p.levelId);
                 WaypointManager mgr = WaypointManager.get(lvl);
                 if (mgr == null) continue;
-                boolean rm = mgr.restoreEntry(sp, (ServerLevel) lvl, p.colorId, p.uuid, p.blockPos);
-                if (rm) it.remove();
-            }
+                try {
+                    ITrackedContrap resolved = globalContraptions.stream().filter(tc -> p.id.equals(tc.getId())).findAny().get();
+                    boolean rm = mgr.restoreEntry(sp, (ServerLevel) lvl, p.colorId, resolved);
+                    if (rm) it.remove();
+                } catch (Exception e) {}
 
+            }
         }
 
         @Override
@@ -582,6 +647,7 @@ public class WaypointManager {
                     if(colorId == null) continue;
 
                     CompoundTag c = new CompoundTag();
+                    c.putUUID("id", tc.getId());
                     c.putString("levelId", levelId);
                     c.putInt("colorId", colorId);
                     c.putString("pos", HBUtil.BlockUtil.positionToString(tc.getAnchorPos()));
@@ -604,11 +670,12 @@ public class WaypointManager {
             {
                 CompoundTag c = list.getCompound(i);
                 PendingEntry e = new PendingEntry();
+                e.id = c.getUUID("id");
                 e.levelId = c.getString("levelId");
                 e.colorId = c.getInt("colorId");
                 e.blockPos = HBUtil.BlockUtil.stringToBlockPos(c.getString("pos"));
                 if (c.hasUUID("uuid")) {
-                    e.uuid = c.getUUID("uuid");
+                    e.contrapId = c.getUUID("uuid");
                 }
                 pending.add(e);
             }

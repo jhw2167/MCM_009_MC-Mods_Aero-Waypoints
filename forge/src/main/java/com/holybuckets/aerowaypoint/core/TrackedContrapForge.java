@@ -1,7 +1,6 @@
 package com.holybuckets.aerowaypoint.core;
 
 import com.holybuckets.foundation.HBUtil;
-import com.simibubi.create.AllEntityTypes;
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity;
 import com.simibubi.create.content.contraptions.Contraption;
 import net.minecraft.core.BlockPos;
@@ -15,6 +14,7 @@ import java.util.UUID;
 
 public class TrackedContrapForge implements ITrackedContrap {
 
+    private UUID id;
     private Contraption contraption;
     private BlockPos staticPosition;
     private long staticPositionStartTick;
@@ -34,6 +34,7 @@ public class TrackedContrapForge implements ITrackedContrap {
     //noArgs
     public TrackedContrapForge() {
         super();
+        id = UUID.randomUUID();
         this.staticPositionStartTick = -1;
     }
 
@@ -44,6 +45,10 @@ public class TrackedContrapForge implements ITrackedContrap {
     }
 
     //Aero
+    @Override
+    public UUID getId() {
+        return this.id;
+    }
 
 
     @Override
@@ -122,13 +127,39 @@ public class TrackedContrapForge implements ITrackedContrap {
         return new TrackedContrapForge();
     }
 
-
     @Override
-    public void restoreStatic(ITrackedContrap newTc) {
+    public ITrackedContrap generateContraption(UUID id, UUID entityId, BlockPos lastPos) {
+        TrackedContrapForge tc = new TrackedContrapForge();
+        tc.id = id;
+        tc.savedUuid = entityId;
+        tc.savedAnchor = lastPos;
+        tc.staticPosition = lastPos;
+        tc.staticPositionStartTick = -1;
+        return tc;
+    }
+
+
+
+        @Override
+    public void restore(ITrackedContrap newTc) {
         this.contraption = ((TrackedContrapForge)newTc).contraption;
         this.savedUuid = newTc.getContraptionUuid();
         this.savedAnchor = newTc.getAnchorPos();
         this.staticPositionStartTick = -1;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof ITrackedContrap that)) return false;
+        UUID myId = this.id;
+        UUID otherId = that.getId();
+        return myId != null && myId.equals(otherId);
+    }
+
+    @Override
+    public int hashCode() {
+        return this.id != null ? this.id.hashCode() : 0;
     }
 
 }

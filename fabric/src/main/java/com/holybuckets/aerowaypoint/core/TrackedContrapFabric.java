@@ -14,6 +14,7 @@ import java.util.UUID;
 
 public class TrackedContrapFabric implements ITrackedContrap {
 
+    private UUID id;
     private Contraption contraption;
     private BlockPos staticPosition;
     private long staticPositionStartTick;
@@ -32,14 +33,22 @@ public class TrackedContrapFabric implements ITrackedContrap {
 
     //noArgs
     public TrackedContrapFabric() {
+        super();
+        id = UUID.randomUUID();
+        this.staticPositionStartTick = -1;
     }
 
     //Create
     public TrackedContrapFabric(Contraption contraption) {
+        this();
         this.contraption = contraption;
     }
 
     //Aero
+    @Override
+    public UUID getId() {
+        return this.id;
+    }
 
 
     @Override
@@ -50,7 +59,8 @@ public class TrackedContrapFabric implements ITrackedContrap {
     @Override
     public BlockPos getAnchorPos() {
         if (this.contraption != null) return this.contraption.anchor;
-        return this.savedAnchor;
+        if(this.savedAnchor!=null) return this.savedAnchor;
+        return this.staticPosition;
     }
 
     @Override
@@ -65,7 +75,7 @@ public class TrackedContrapFabric implements ITrackedContrap {
         return this.savedUuid;
     }
 
-
+    //string createTag()
     @Override
     public String createTag() {
         if(this.contraption!=null) {
@@ -75,14 +85,20 @@ public class TrackedContrapFabric implements ITrackedContrap {
                 uu = this.contraption.entity.getUUID().toString().substring(0, 4);
             }
             return "C:" + type + "@" + uu;
+        } else if(this.staticPosition!=null) {
+            return HBUtil.BlockUtil.positionToString(this.staticPosition);
         }
-        return "";
+        return "Contraption";
     }
-
 
     @Override
     public void setStaticPosition(BlockPos pos) {
         this.staticPosition = pos;
+    }
+
+    @Override
+    public void setSavedUuid(UUID uuid) {
+        this.savedUuid = uuid;
     }
 
     @Override
@@ -91,9 +107,15 @@ public class TrackedContrapFabric implements ITrackedContrap {
     }
 
     @Override
+    public boolean isStatic() {
+        return this.staticPositionStartTick > -1;
+    }
+
+    @Override
     public void setStaticPositionStartTick(long tick) {
         this.staticPositionStartTick = tick;
     }
+
 
     @Override
     public ITrackedContrap generateContraption(Entity target) {
@@ -102,8 +124,42 @@ public class TrackedContrapFabric implements ITrackedContrap {
         } else {
             //aero stuff
         }
-        return null;
+        return new TrackedContrapFabric();
     }
 
+    @Override
+    public ITrackedContrap generateContraption(UUID id, UUID entityId, BlockPos lastPos) {
+        TrackedContrapFabric tc = new TrackedContrapFabric();
+        tc.id = id;
+        tc.savedUuid = entityId;
+        tc.savedAnchor = lastPos;
+        tc.staticPosition = lastPos;
+        tc.staticPositionStartTick = -1;
+        return tc;
+    }
+
+
+
+    @Override
+    public void restore(ITrackedContrap newTc) {
+        this.contraption = ((TrackedContrapFabric)newTc).contraption;
+        this.savedUuid = newTc.getContraptionUuid();
+        this.savedAnchor = newTc.getAnchorPos();
+        this.staticPositionStartTick = -1;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof ITrackedContrap that)) return false;
+        UUID myId = this.id;
+        UUID otherId = that.getId();
+        return myId != null && myId.equals(otherId);
+    }
+
+    @Override
+    public int hashCode() {
+        return this.id != null ? this.id.hashCode() : 0;
+    }
 
 }

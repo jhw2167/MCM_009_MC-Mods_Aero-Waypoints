@@ -41,6 +41,9 @@ public interface ITrackedContrap {
 
     void init(MinecraftServer server);
 
+    //Aero
+    UUID getId();
+
     Entity getContraptionEntity();
 
     BlockPos getAnchorPos();
@@ -63,15 +66,21 @@ public interface ITrackedContrap {
         return GENERATOR.get(0).generateContraption(target);
     }
 
+    static ITrackedContrap createContraption(UUID id, UUID entityId, BlockPos lastPos) {
+        return GENERATOR.get(0).generateContraption(id, entityId, lastPos);
+    }
+
 
     ITrackedContrap generateContraption(Entity target);
+
+    ITrackedContrap generateContraption(UUID id, UUID entityId, BlockPos lastPos);
 
     /**
      * Restores a static contraption back to an active entity tracking ITrackedContrap
      * @param newTc the new ITrackedContrap to restore
      * @return
      */
-    void restoreStatic(ITrackedContrap newTc);
+    void restore(ITrackedContrap newTc);
 
     String createTag();
 }
