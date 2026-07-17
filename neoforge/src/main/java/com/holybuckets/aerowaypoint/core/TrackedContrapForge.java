@@ -3,6 +3,8 @@ package com.holybuckets.aerowaypoint.core;
 import com.holybuckets.foundation.HBUtil;
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity;
 import com.simibubi.create.content.contraptions.Contraption;
+import dev.ryanhcode.sable.level.SubLevel;
+import dev.ryanhcode.sable.level.SubLevelManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.MinecraftServer;
@@ -21,6 +23,7 @@ public class TrackedContrapForge implements ITrackedContrap {
 
     private UUID savedUuid;
     private BlockPos savedAnchor;
+    private UUID savedSubLevelUuid;
 
     @Override
     public void init(MinecraftServer server) {
@@ -73,6 +76,35 @@ public class TrackedContrapForge implements ITrackedContrap {
     public UUID getContraptionUuid() {
         if (this.contraption != null && this.contraption.entity != null) return this.contraption.entity.getUUID();
         return this.savedUuid;
+    }
+
+    /**
+     * If this contraption is a Create: Aeronautics ship, return the UUID of the
+     * Sable sub-level backing it so the waypoint can follow the ship via
+     * Foundation's Sable {@link com.holybuckets.aerowaypoint.compat.aeronautics.SableEntityResolver}
+     * even once the contraption entity unloads.
+     *
+     * <p><b>VERIFY AGAINST THE SABLE / CREATE: AERONAUTICS JARS</b> — this is the
+     * one place that maps a Create contraption to its Sable sub-level. The lookup
+     * below assumes the sub-level containing the contraption entity's position is
+     * the ship's own sub-level. If Create: Aeronautics exposes the sub-level
+     * directly on the ship contraption/entity, prefer that. Returns {@code null}
+     * for ordinary (non-Sable) contraptions, which is the correct fallthrough.</p>
+     */
+    @Override
+    public UUID getSubLevelUuid() {
+        Entity e = getContraptionEntity();
+        if (e == null || e.level() == null) return this.savedSubLevelUuid;
+        try {
+            SubLevel sl = SubLevelManager.get(e.level()).getContaining(e.blockPosition());
+            if (sl != null) {
+                this.savedSubLevelUuid = sl.getUUID();
+                return this.savedSubLevelUuid;
+            }
+        } catch (Throwable ignored) {
+            // Sable not present / API mismatch — fall through to non-ship behavior.
+        }
+        return this.savedSubLevelUuid;
     }
 
     //string createTag()

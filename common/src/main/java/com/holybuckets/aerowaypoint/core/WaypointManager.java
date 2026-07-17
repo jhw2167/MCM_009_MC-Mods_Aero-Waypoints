@@ -191,20 +191,39 @@ public class WaypointManager {
             .put(contrap, colorId);
 
         //c + first 4 letters of UUID
-        MovingWaypoint.setWaypoint(
-            sp,
-            contrap.getAnchorPos(),
-            colorId,
-            waypointId,
-            true,
-            contrap.getContraptionEntity(),
-            contrap.createTag()
-        );
+        UUID subLevelUuid = contrap.getSubLevelUuid();
+        if (subLevelUuid != null) {
+            // Sable-backed ship (Create: Aeronautics): follow by the sub-level UUID.
+            // HBs Foundation's Sable EntityLikeResolver resolves this UUID to a live
+            // position every tick, so the waypoint stays pinned to the moving ship even
+            // after its contraption entity unloads. Assumes Foundation's MovingWaypoint
+            // exposes a UUID-following overload (the "linkedEntityUuid" architecture).
+            MovingWaypoint.setWaypoint(
+                sp,
+                contrap.getAnchorPos(),
+                colorId,
+                waypointId,
+                true,
+                subLevelUuid,
+                contrap.createTag()
+            );
+            sendTrackedToClient(sp, subLevelUuid, null, "add");
+        } else {
+            MovingWaypoint.setWaypoint(
+                sp,
+                contrap.getAnchorPos(),
+                colorId,
+                waypointId,
+                true,
+                contrap.getContraptionEntity(),
+                contrap.createTag()
+            );
 
-        if(contrap.getContraptionEntity()!=null)
-            sendTrackedToClient(sp, contrap.getContraptionUuid(), null, "add");
-        else
-            sendTrackedToClient(sp, null, contrap.getAnchorPos(), "add");
+            if (contrap.getContraptionEntity() != null)
+                sendTrackedToClient(sp, contrap.getContraptionUuid(), null, "add");
+            else
+                sendTrackedToClient(sp, null, contrap.getAnchorPos(), "add");
+        }
 
         return contrap;
     }
@@ -258,7 +277,9 @@ public class WaypointManager {
                     MovingWaypoint.removeWaypoint(sp, waypointId);
                 }
             }
-            sendTrackedToClient(sp, tc.getContraptionUuid(), null, "remove");
+            // Remove client-side using whatever UUID we added it with (sub-level for ships).
+            UUID linkedUuid = tc.getSubLevelUuid() != null ? tc.getSubLevelUuid() : tc.getContraptionUuid();
+            sendTrackedToClient(sp, linkedUuid, null, "remove");
         }
         return removed;
     }

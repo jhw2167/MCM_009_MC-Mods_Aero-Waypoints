@@ -184,8 +184,8 @@ public class WaypointManagerClient {
 
     private static Item getGogglesItem() {
         if (gogglesItem == null) {
-            Item resolved = BuiltInRegistries.ITEM.get(new ResourceLocation("create", "goggles"));
-            if (resolved != null && resolved != BuiltInRegistries.ITEM.get(new ResourceLocation("minecraft", "air"))) {
+            Item resolved = BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath("create", "goggles"));
+            if (resolved != null && resolved != BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath("minecraft", "air"))) {
                 gogglesItem = resolved;
             }
         }

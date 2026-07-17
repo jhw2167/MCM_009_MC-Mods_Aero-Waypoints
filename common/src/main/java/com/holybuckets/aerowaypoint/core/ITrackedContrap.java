@@ -52,6 +52,23 @@ public interface ITrackedContrap {
 
     UUID getContraptionUuid();
 
+    /**
+     * The Sable sub-level UUID backing this contraption, if it is a
+     * Create: Aeronautics ship (or any Sable-backed structure); {@code null}
+     * for ordinary Create contraptions.
+     *
+     * <p>When non-null, the waypoint follows this UUID instead of the
+     * contraption entity's UUID, so HBs Foundation's Sable
+     * {@code EntityLikeResolver} keeps the waypoint pinned to the ship even
+     * after the contraption entity unloads or disassembles into its sub-level.
+     * Only the platform implementation with Sable on the classpath (NeoForge)
+     * can populate this.</p>
+     */
+    default UUID getSubLevelUuid() { return null; }
+
+    /** True when this contraption is backed by a Sable sub-level (an Aeronautics ship). */
+    default boolean isSubLevelBacked() { return getSubLevelUuid() != null; }
+
     void setStaticPosition(BlockPos pos);
 
     void setSavedUuid(UUID uuid);

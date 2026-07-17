@@ -31,11 +31,15 @@ public class CommonClass {
         AeroWaypointsMain.INSTANCE = new AeroWaypointsMain();
         BalmEventRegister.registerEvents();
         BalmEventRegister.registerCommands();
-        ModBlocks.initialize(Balm.getBlocks());
-        ModBlockEntities.initialize(Balm.getBlockEntities());
-        ModItems.initialize(Balm.getItems());
-        ModMenus.initialize(Balm.getMenus());
-        
+        //ModBlocks.initialize(Balm.getBlocks());
+        //ModBlockEntities.initialize(Balm.getBlockEntities());
+        //ModItems.initialize(Balm.getItems());
+        //ModMenus.initialize(Balm.getMenus());
+
+        // Register the Sable/Aeronautics EntityLikeResolver with HBs Foundation
+        // (no-op unless Sable is loaded; NeoForge-only implementation).
+        com.holybuckets.aerowaypoint.compat.aeronautics.SableEntityResolver.init();
+
         isInitialized = true;
     }
 

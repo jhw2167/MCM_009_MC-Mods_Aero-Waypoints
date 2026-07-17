@@ -1,0 +1,71 @@
+plugins {
+    id 'multiloader-loader'
+    id 'net.neoforged.moddev'
+}
+version = "${mod_version}"
+
+neoForge {
+    version = neoforge_version
+    // Automatically enable neoforge AccessTransformers if the file exists
+    def at = project(':common').file('src/main/resources/META-INF/accesstransformer.cfg')
+    if (at.exists()) {
+        accessTransformers.from(at.absolutePath)
+    }
+    parchment {
+        minecraftVersion = parchment_minecraft
+        mappingsVersion = parchment_version
+    }
+    runs {
+        configureEach {
+            systemProperty('neoforge.enabledGameTestNamespaces', mod_id)
+            ideName = "NeoForge ${it.name.capitalize()} (${project.path})"
+        }
+        client {
+            client()
+        }
+        data {
+            data()
+            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+        server {
+            server()
+        }
+    }
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+dependencies {
+    implementation("net.blay09.mods:balm-neoforge:${balm_version}") {
+        changing = balm_version.contains("SNAPSHOT")
+    }
+
+    // HBs_Foundation (published to mavenLocal, lowercase artifact ids)
+    implementation("com.holybuckets.foundation:hbs_foundation-neoforge-${minecraft_version}:${foundation_version}") {
+        changing = true
+    }
+
+    // Create (NeoForge) via CurseForge
+    implementation "curse.maven:create-${create_proj_id}:${create_neoforge_file_id}"
+
+    implementation group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.1'
+
+    api("dev.ryanhcode.sable:sable-neoforge-${project.minecraft_version}:${project.sable_version}")
+    implementation("dev.simulated_team.simulated:simulated-neoforge-${project.minecraft_version}:${project.simulated_version}") {
+        exclude(group: "cc.tweaked", module: "cc-tweaked-1.21.1-forge")
+    }
+    implementation("dev.eriksonn.aeronautics:aeronautics-neoforge-${project.minecraft_version}:${project.simulated_version}") {
+        exclude(group: "cc.tweaked", module: "cc-tweaked-1.21.1-forge")
+    }
+    implementation("dev.ryanhcode.offroad:offroad-neoforge-${project.minecraft_version}:${project.simulated_version}") {
+        exclude(group: "cc.tweaked", module: "cc-tweaked-1.21.1-forge")
+    }
+
+    // Curios
+    compileOnly("top.theillusivec4.curios:curios-neoforge:${curios_version}+${minecraft_version}:api")
+}
