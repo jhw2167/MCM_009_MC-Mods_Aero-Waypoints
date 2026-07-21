@@ -1,16 +1,20 @@
 package com.holybuckets.aerowaypoint.core;
 
+import com.holybuckets.aerowaypoint.compat.SableSubLevelEntityLike;
 import com.holybuckets.foundation.HBUtil;
+import com.holybuckets.foundation.model.EntityLike;
+import com.holybuckets.foundation.model.VanillaEntityLike;
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity;
 import com.simibubi.create.content.contraptions.Contraption;
-import dev.ryanhcode.sable.level.SubLevel;
-import dev.ryanhcode.sable.level.SubLevelManager;
+import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3dc;
 
 import java.util.UUID;
 
@@ -18,12 +22,12 @@ public class TrackedContrapForge implements ITrackedContrap {
 
     private UUID id;
     private Contraption contraption;
+    private SubLevel subLevel;
     private BlockPos staticPosition;
     private long staticPositionStartTick;
 
     private UUID savedUuid;
     private BlockPos savedAnchor;
-    private UUID savedSubLevelUuid;
 
     @Override
     public void init(MinecraftServer server) {
@@ -48,6 +52,18 @@ public class TrackedContrapForge implements ITrackedContrap {
     }
 
     //Aero
+    public TrackedContrapForge(SubLevel subLevel) {
+        this();
+        this.subLevel = subLevel;
+    }
+
+    // Sub-level ships are tracked by persistent UUID, not the live reference.
+    @Override
+    public boolean isSubLevelBacked() {
+        return this.subLevel != null;
+    }
+
+
     @Override
     public UUID getId() {
         return this.id;
@@ -62,6 +78,7 @@ public class TrackedContrapForge implements ITrackedContrap {
     @Override
     public BlockPos getAnchorPos() {
         if (this.contraption != null) return this.contraption.anchor;
+        if(this.subLevel != null) { return HBUtil.BlockUtil.toBlockPos( subLevelPos(this.subLevel)); }
         if(this.savedAnchor!=null) return this.savedAnchor;
         return this.staticPosition;
     }
@@ -69,43 +86,44 @@ public class TrackedContrapForge implements ITrackedContrap {
     @Override
     public Vec3 getPos() {
         if (this.contraption != null && this.contraption.entity != null) return this.contraption.entity.position();
-        return this.savedAnchor != null ? Vec3.atCenterOf(this.savedAnchor) : null;
+        if (this.subLevel != null) return subLevelPos(this.subLevel);
+        return this.getAnchorPos().getCenter();
+    }
+
+    // World-space center of a sub-level's global bounding box.
+    private static Vec3 subLevelPos(SubLevel subLevel) {
+        Vector3dc center = subLevel.lastPose().position();
+        return new Vec3(center.x(), center.y(), center.z());
+    }
+
+    // EntityLike: dimension of the backing contraption entity or sub-level.
+    @Override
+    public ResourceLocation dimension() {
+        if (this.contraption != null && this.contraption.entity != null)
+            return this.contraption.entity.level().dimension().location();
+        if (this.subLevel != null)
+            return this.subLevel.getLevel().dimension().location();
+        return null;
+    }
+
+    // EntityLike: valid while the sub-level or contraption entity still exists.
+    @Override
+    public boolean isValid() {
+        if (this.subLevel != null) return !this.subLevel.isRemoved();
+        Entity e = getContraptionEntity();
+        return e != null && !e.isRemoved();
     }
 
     @Override
     public UUID getContraptionUuid() {
-        if (this.contraption != null && this.contraption.entity != null) return this.contraption.entity.getUUID();
+        if (this.contraption != null && this.contraption.entity != null)
+            return this.contraption.entity.getUUID();
+        if(this.subLevel != null)
+            return this.subLevel.getUniqueId();
+
         return this.savedUuid;
     }
 
-    /**
-     * If this contraption is a Create: Aeronautics ship, return the UUID of the
-     * Sable sub-level backing it so the waypoint can follow the ship via
-     * Foundation's Sable {@link com.holybuckets.aerowaypoint.compat.aeronautics.SableEntityResolver}
-     * even once the contraption entity unloads.
-     *
-     * <p><b>VERIFY AGAINST THE SABLE / CREATE: AERONAUTICS JARS</b> — this is the
-     * one place that maps a Create contraption to its Sable sub-level. The lookup
-     * below assumes the sub-level containing the contraption entity's position is
-     * the ship's own sub-level. If Create: Aeronautics exposes the sub-level
-     * directly on the ship contraption/entity, prefer that. Returns {@code null}
-     * for ordinary (non-Sable) contraptions, which is the correct fallthrough.</p>
-     */
-    @Override
-    public UUID getSubLevelUuid() {
-        Entity e = getContraptionEntity();
-        if (e == null || e.level() == null) return this.savedSubLevelUuid;
-        try {
-            SubLevel sl = SubLevelManager.get(e.level()).getContaining(e.blockPosition());
-            if (sl != null) {
-                this.savedSubLevelUuid = sl.getUUID();
-                return this.savedSubLevelUuid;
-            }
-        } catch (Throwable ignored) {
-            // Sable not present / API mismatch — fall through to non-ship behavior.
-        }
-        return this.savedSubLevelUuid;
-    }
 
     //string createTag()
     @Override
@@ -146,15 +164,19 @@ public class TrackedContrapForge implements ITrackedContrap {
     @Override
     public void setStaticPositionStartTick(long tick) {
         this.staticPositionStartTick = tick;
+        this.contraption = null;
+        this.subLevel = null;
     }
 
 
     @Override
-    public ITrackedContrap generateContraption(Entity target) {
-        if(target instanceof AbstractContraptionEntity abc) {
-            return new TrackedContrapForge(abc.getContraption());
-        } else {
-            //aero stuff
+    public ITrackedContrap generateContraption(EntityLike target)
+    {
+        if(target instanceof VanillaEntityLike ent) {
+            if(ent.entity() instanceof AbstractContraptionEntity abc)
+                return new TrackedContrapForge(abc.getContraption());
+        } else if(target instanceof SableSubLevelEntityLike sub) {
+            return new TrackedContrapForge(sub.getSubLevel());
         }
         return new TrackedContrapForge();
     }
@@ -175,8 +197,20 @@ public class TrackedContrapForge implements ITrackedContrap {
         @Override
     public void restore(ITrackedContrap newTc) {
         this.contraption = ((TrackedContrapForge)newTc).contraption;
+        this.subLevel = ((TrackedContrapForge)newTc).subLevel;
         this.savedUuid = newTc.getContraptionUuid();
         this.savedAnchor = newTc.getAnchorPos();
+        this.staticPositionStartTick = -1;
+    }
+
+    @Override
+    public void restore(EntityLike newTc) {
+        if(newTc instanceof VanillaEntityLike ent) {
+            if(ent.entity() instanceof AbstractContraptionEntity abc)
+                this.contraption = abc.getContraption();
+        } else if(newTc instanceof SableSubLevelEntityLike sub) {
+            this.subLevel = sub.getSubLevel();
+        }
         this.staticPositionStartTick = -1;
     }
 

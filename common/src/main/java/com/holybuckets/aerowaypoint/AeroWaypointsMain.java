@@ -14,18 +14,22 @@ import com.holybuckets.foundation.event.EventRegistrar;
 import com.holybuckets.aerowaypoint.config.AeroWaypointConfig;
 import com.holybuckets.foundation.event.custom.PlayerInteractEvent;
 import com.holybuckets.foundation.event.custom.SimpleMessageEvent;
+import com.holybuckets.foundation.model.EntityLike;
+import com.holybuckets.foundation.model.EntityLikeResolver;
 import com.holybuckets.foundation.networking.SimpleStringMessage;
 import net.blay09.mods.balm.api.Balm;
 import net.blay09.mods.balm.api.event.EventPriority;
 import net.blay09.mods.balm.api.event.server.ServerStartingEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import  static  com.holybuckets.foundation.HBUtil.PlayerUtil;
@@ -117,6 +121,15 @@ public class AeroWaypointsMain {
         );
 
         WaypointManager.onPlayerEntityInteract(event);
+    }
+
+    // Server-side sub-level (Aeronautics ship) interaction entry, called directly from the Simulated mixin.
+    public static void onSublevelInteract(Player player, EntityLike subLevelEntity)
+    {
+        Player p = PlayerUtil.getPlayer(PlayerUtil.getId(player), PlayerUtil.PlayerNameSpace.SERVER);
+        if (!(p instanceof ServerPlayer sp) || subLevelEntity == null) return;
+
+        WaypointManager.onPlayerInteract(sp, subLevelEntity);
     }
 
 }

@@ -10,8 +10,8 @@ import java.util.Locale;
 @Config(value = Constants.MOD_ID, type = "client")
 public class AeroWaypointClientConfig {
 
-    @Comment("devMode==true disables portal spawns so the player can build and save new challenges")
-    public boolean devMode = false;
+    //@Comment("devMode==true disables portal spawns so the player can build and save new challenges")
+    //public boolean devMode = false;
 
     public WaypointRendering waypointRendering = new WaypointRendering();
 

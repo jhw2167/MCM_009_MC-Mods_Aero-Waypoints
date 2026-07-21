@@ -1,0 +1,14 @@
+{
+    "hbs_aerowaypoint.configuration.title": "HBs Aero Waypoints",
+
+    "hbs_aerowaypoint.configuration.waypointRendering": "Waypoint Visibility",
+
+    "hbs_aerowaypoint.configuration.waypointVisibility": "Waypoint Beam Visibility",
+    "hbs_aerowaypoint.configuration.waypointVisibility.tooltip": "When the waypoint beam is rendered: ALWAYS, GOGGLES, CROUCH, CROUCH_TOGGLE, GOGGLES_AND_CROUCH.",
+
+    "hbs_aerowaypoint.configuration.tagVisibility": "Name-Tag Visibility",
+    "hbs_aerowaypoint.configuration.tagVisibility.tooltip": "When a waypoint's name-tag label is shown: ALWAYS, GOGGLES, LOOKING, LOOKING_AND_GOGGLES.",
+
+    "hbs_aerowaypoint.configuration.devMode": "Developer Mode",
+    "hbs_aerowaypoint.configuration.devMode.tooltip": "Enables development-only behavior; leave off for normal play."
+}

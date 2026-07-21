@@ -1,10 +1,12 @@
 package com.holybuckets.aerowaypoint.core;
 
 import com.holybuckets.foundation.HBUtil;
+import com.holybuckets.foundation.model.EntityLike;
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity;
 import com.simibubi.create.content.contraptions.Contraption;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -75,6 +77,20 @@ public class TrackedContrapFabric implements ITrackedContrap {
         return this.savedUuid;
     }
 
+    // EntityLike: dimension of the backing contraption entity, if any.
+    @Override
+    public ResourceLocation dimension() {
+        Entity e = getContraptionEntity();
+        return e != null ? e.level().dimension().location() : null;
+    }
+
+    // EntityLike: valid while the contraption entity still exists.
+    @Override
+    public boolean isValid() {
+        Entity e = getContraptionEntity();
+        return e != null && !e.isRemoved();
+    }
+
     //string createTag()
     @Override
     public String createTag() {
@@ -118,7 +134,7 @@ public class TrackedContrapFabric implements ITrackedContrap {
 
 
     @Override
-    public ITrackedContrap generateContraption(Entity target) {
+    public ITrackedContrap generateContraption(EntityLike target) {
         if(target instanceof AbstractContraptionEntity abc) {
             return new TrackedContrapFabric(abc.getContraption());
         } else {

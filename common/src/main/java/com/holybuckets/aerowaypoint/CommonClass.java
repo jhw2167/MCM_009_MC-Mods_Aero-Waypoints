@@ -1,15 +1,10 @@
 package com.holybuckets.aerowaypoint;
 
-import com.holybuckets.aerowaypoint.client.config.AeroWaypointClientConfig;
+import com.holybuckets.aerowaypoint.compat.SableEntityResolver;
 import com.holybuckets.foundation.event.BalmEventRegister;
-import com.holybuckets.aerowaypoint.block.ModBlocks;
-import com.holybuckets.aerowaypoint.block.be.ModBlockEntities;
-import com.holybuckets.aerowaypoint.item.ModItems;
-import com.holybuckets.aerowaypoint.menu.ModMenus;
 import com.holybuckets.aerowaypoint.platform.Services;
+import com.holybuckets.foundation.model.EntityLikeResolver;
 import net.blay09.mods.balm.api.Balm;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.Items;
 
 
 public class CommonClass {
@@ -36,9 +31,10 @@ public class CommonClass {
         //ModItems.initialize(Balm.getItems());
         //ModMenus.initialize(Balm.getMenus());
 
-        // Register the Sable/Aeronautics EntityLikeResolver with HBs Foundation
-        // (no-op unless Sable is loaded; NeoForge-only implementation).
-        com.holybuckets.aerowaypoint.compat.aeronautics.SableEntityResolver.init();
+        EntityLikeResolver.register( (SableEntityResolver) Balm.platformProxy()
+            .withNeoForge("com.holybuckets.aerowaypoint.compat.SableEntityResolverNeoForge")
+            // DNE rn .withFabric("com.holybuckets.aerowaypoint.compat.SableEntityResolverFabric")
+            .build());
 
         isInitialized = true;
     }

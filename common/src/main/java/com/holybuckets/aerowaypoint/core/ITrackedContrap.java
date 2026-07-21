@@ -1,6 +1,7 @@
 package com.holybuckets.aerowaypoint.core;
 
 import com.holybuckets.foundation.GeneralConfig;
+import com.holybuckets.foundation.model.EntityLike;
 import net.blay09.mods.balm.api.Balm;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -10,7 +11,8 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.*;
 
-public interface ITrackedContrap {
+// A tracked contraption is also an EntityLike so waypoints can follow it directly.
+public interface ITrackedContrap extends EntityLike {
 
     List<ITrackedContrap> GENERATOR = new ArrayList<>(1);
     Set<EntityType<?>> CONTRAPTION_TYPES = new HashSet<>();
@@ -26,7 +28,7 @@ public interface ITrackedContrap {
     static void init(GeneralConfig config) {
         GENERATOR.clear();
         GENERATOR.add( ( ITrackedContrap) Balm.platformProxy()
-            .withForge("com.holybuckets.aerowaypoint.core.TrackedContrapForge")
+            .withNeoForge("com.holybuckets.aerowaypoint.core.TrackedContrapForge")
             .withFabric("com.holybuckets.aerowaypoint.core.TrackedContrapFabric")
             .build());
         GENERATOR.get(0).init(config.getServer());
@@ -52,22 +54,19 @@ public interface ITrackedContrap {
 
     UUID getContraptionUuid();
 
-    /**
-     * The Sable sub-level UUID backing this contraption, if it is a
-     * Create: Aeronautics ship (or any Sable-backed structure); {@code null}
-     * for ordinary Create contraptions.
-     *
-     * <p>When non-null, the waypoint follows this UUID instead of the
-     * contraption entity's UUID, so HBs Foundation's Sable
-     * {@code EntityLikeResolver} keeps the waypoint pinned to the ship even
-     * after the contraption entity unloads or disassembles into its sub-level.
-     * Only the platform implementation with Sable on the classpath (NeoForge)
-     * can populate this.</p>
-     */
-    default UUID getSubLevelUuid() { return null; }
+    // EntityLike: the followed UUID is the contraption/sub-level UUID.
+    @Override default UUID getUUID() { return getContraptionUuid(); }
 
-    /** True when this contraption is backed by a Sable sub-level (an Aeronautics ship). */
-    default boolean isSubLevelBacked() { return getSubLevelUuid() != null; }
+    // EntityLike: current position is the contraption/sub-level position.
+    @Override default Vec3 position() { return getPos(); }
+
+    // EntityLike: waypoints do not use orientation, so report none.
+    @Override default float getYRot() { return 0f; }
+
+    @Override default float getXRot() { return 0f; }
+
+    // True when this contraption is backed by a Sable sub-level (an Aeronautics ship).
+    default boolean isSubLevelBacked() { return false; }
 
     void setStaticPosition(BlockPos pos);
 
@@ -79,7 +78,7 @@ public interface ITrackedContrap {
 
     void setStaticPositionStartTick(long tick);
 
-    static ITrackedContrap getContraption(Entity target) {
+    static ITrackedContrap getContraption(EntityLike target) {
         return GENERATOR.get(0).generateContraption(target);
     }
 
@@ -88,7 +87,7 @@ public interface ITrackedContrap {
     }
 
 
-    ITrackedContrap generateContraption(Entity target);
+    ITrackedContrap generateContraption(EntityLike target);
 
     ITrackedContrap generateContraption(UUID id, UUID entityId, BlockPos lastPos);
 
@@ -98,6 +97,8 @@ public interface ITrackedContrap {
      * @return
      */
     void restore(ITrackedContrap newTc);
+
+    void restore(EntityLike e);
 
     String createTag();
 }
