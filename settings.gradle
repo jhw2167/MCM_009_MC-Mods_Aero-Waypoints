@@ -21,7 +21,7 @@ plugins {
 }
 
 // This should match the folder name of the project, or else IDEA may complain (see https://youtrack.jetbrains.com/issue/IDEA-317606)
-rootProject.name = 'MCM_009_AeroWaypoints'
+rootProject.name = 'MCM_009_MC-Mods_Aero-Waypoints'
 include("common")
 //include("fabric")
 include("neoforge")

@@ -1,0 +1,26 @@
+# Normalize line endings: store LF in the repo, check out native on Windows.
+* text=auto
+
+# Explicit types
+*.java      text diff=java
+*.gradle    text
+*.properties text
+*.json      text
+*.toml      text
+*.mcmeta    text
+*.txt       text
+*.md        text
+*.xml       text
+*.cfg       text
+
+# Scripts must keep their platform endings
+*.sh        text eol=lf
+gradlew     text eol=lf
+*.bat       text eol=crlf
+gradlew.bat text eol=crlf
+
+# Binaries
+*.jar       binary
+*.png       binary
+*.ogg       binary
+*.zip       binary

@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.holybuckets.aerowaypoint.AeroWaypointsMain;
+import com.holybuckets.aerowaypoint.CommonClass;
 import com.holybuckets.aerowaypoint.Constants;
 import com.holybuckets.aerowaypoint.LoggerProject;
 import com.holybuckets.foundation.GeneralConfig;
@@ -41,6 +42,7 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.phys.AABB;
+import org.apache.logging.log4j.core.jmx.Server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -182,7 +184,7 @@ public class WaypointManager {
         ITrackedContrap contraption = ITrackedContrap.getContraption(target);
         if (contraption == null) return;
         if (staticContraptions.containsKey(contraption.getAnchorPos()))
-            this.tryReactivateStatic(contraption);
+            this.tryReactivateStatic(target, contraption.getAnchorPos());
         else
             this.track(sp, contraption);
     }
@@ -200,13 +202,13 @@ public class WaypointManager {
         if (id == null) return null;
 
         Set<ITrackedContrap> set = trackedContraptions.computeIfAbsent(id, k -> ConcurrentHashMap.newKeySet());
-        if(!set.add(contrap)) return null; //already tracked
+        if( waypointColorsByPlayer.get(id).containsKey(contrap) ) return null;
+        set.add(contrap);
         globalContraptions.add(contrap);
 
         int colorId = (colorOverride>0) ? colorOverride : getNextColor();
         int waypointId = calculateWaypointId(PlayerUtil.getId(sp), colorId);
-        waypointColorsByPlayer.computeIfAbsent(id, k -> new ConcurrentHashMap<>())
-            .put(contrap, colorId);
+        waypointColorsByPlayer.get(id).put(contrap, colorId);
 
         //c + first 4 letters of UUID
         MovingWaypoint.setWaypoint(
@@ -235,7 +237,7 @@ public class WaypointManager {
 
     private void tryReactivateStatic(EntityLike entity, BlockPos anchorPos)
     {
-        BlockPos pos = (anchorPos!=null) ? anchorPos : entityLike.getPos();
+        BlockPos pos = (anchorPos!=null) ? anchorPos : entity.blockPosition();
         ITrackedContrap contrap = staticContraptions.remove(pos);
         if (contrap == null) return;
 
@@ -311,6 +313,7 @@ public class WaypointManager {
         for (Integer colorId : colors.values()) {
             MovingWaypoint.removeWaypoint(sp, calculateWaypointId(pid, colorId));
         }
+        sendTrackedToClient(sp, null, null, "clear");
     }
 
     /**
@@ -331,6 +334,7 @@ public class WaypointManager {
 
 
         ChunkAccess chunk = level.getChunk(pos);
+        /*
         ChunkPos cp = new ChunkPos(pos);
         if(chunk == null) {
             HBUtil.ChunkUtil.forceLoadChunk( serverLevel, cp, TICKET_ID);
@@ -338,12 +342,11 @@ public class WaypointManager {
         } else if(HBUtil.ChunkUtil.isChunkForceLoaded(serverLevel, new ChunkPos(pos))) {
             HBUtil.ChunkUtil.unforceLoadChunk(serverLevel, cp, TICKET_ID);
         }
+        */
 
         Optional<EntityLike> ship = EntityLikeResolver.resolveEntity(tc.getContraptionUuid(), level);
 
-        if(ship.isEmpty()) {    //static waypoint OR entity not resolved
-            tc.setStaticPositionStartTick(CONFIG.getTotalTickCount());
-        } else {
+        if(!ship.isEmpty()) {    //static waypoint OR entity not resolved
             tc.restore(ship.get());
         }
 
@@ -360,13 +363,12 @@ public class WaypointManager {
     private void tickPrune()
     {
         if (HBUtil.PlayerUtil.getAllPlayers().isEmpty() || ManagedPlayer.PLAYERS.isEmpty()) return;
-        List<ServerPlayer> players = HBUtil.PlayerUtil.getAllPlayers();
 
         long now = level != null ? CONFIG.getTotalTickCount() : 0L;
 
-        for (ServerPlayer player : players)
+        for (String playerId : trackedContraptions.keySet())
         {
-            String playerId = PlayerUtil.getId(player);
+            ServerPlayer player = (ServerPlayer) PlayerUtil.getPlayer(playerId, PlayerUtil.PlayerNameSpace.SERVER);
             Iterator<ITrackedContrap> it = trackedContraptions.get(playerId).iterator();
             while (it.hasNext())
             {
@@ -596,7 +598,7 @@ public class WaypointManager {
             .addProperty(GLOBAL_CONTRAPS_KEY, contrapsJson);
     }
 
-    private static final int BUFFER_RESOLVE_ENTITIES = 15;
+    private static final int BUFFER_RESOLVE_ENTITIES = 5;
     private static int count = 0;
     private static void on20Ticks(ServerTickEvent event) {
         for (WaypointManager manager : managers.values()) {
@@ -612,6 +614,15 @@ public class WaypointManager {
             if(data instanceof PlayerContrapWaypointData subData) {
                 subData.flushPendingWaypoints(sp);
             }
+        }
+    }
+
+    static void onPlayerJoin(ServerPlayer sp) {
+        //for all managers, create a waypointColors entry
+        for (WaypointManager manager : managers.values()) {
+            String playerId = PlayerUtil.getId(sp);
+            if (playerId == null) continue;
+            manager.waypointColorsByPlayer.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
         }
     }
 
@@ -648,9 +659,9 @@ public class WaypointManager {
         @Override public IManagedPlayer getStaticInstance(Player player, String id) { return null; }
 
         @Override
-        public void handlePlayerJoin(Player player)
-        {
+        public void handlePlayerJoin(Player player) {
             if (!(player instanceof ServerPlayer sp)) return;
+            WaypointManager.onPlayerJoin(sp);
         }
 
         public void flushPendingWaypoints(ServerPlayer sp)
@@ -667,12 +678,17 @@ public class WaypointManager {
                 if (mgr == null) continue;
 
                 ITrackedContrap resolved = globalContraptions.stream().filter(tc -> tc.getId().equals(p.id))
-                    .findFirst().orElse(ITrackedContrap.createContraption(p.id, null, p.blockPos));
-                try {
-                    boolean rm = mgr.restoreEntry(sp, (ServerLevel) lvl, p.colorId, resolved);
-                    if (rm) it.remove();
-                } catch (Exception e) {}
+                    .findFirst().orElse(null);
+                if(resolved == null) {
+                    String msg = String.format("Player waypoint %s not found in saved batch, " +
+                     "contraption may have been moved or destroyed, waypoint set to last known location", p.id);
+                    LoggerProject.logInfo("005003", msg);
+                    AeroWaypointsMain.MESSAGER.sendChat(sp, msg);
+                    resolved = ITrackedContrap.createContraption(p.id, null, p.blockPos);
+                }
 
+                boolean rm = mgr.restoreEntry(sp, (ServerLevel) lvl, p.colorId, resolved);
+                if (rm) it.remove();
             }
         }
 

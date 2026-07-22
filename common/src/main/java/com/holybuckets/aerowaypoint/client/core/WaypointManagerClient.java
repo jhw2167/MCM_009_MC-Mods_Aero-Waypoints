@@ -56,6 +56,12 @@ public class WaypointManagerClient {
         reg.registerOnSimpleMessage(WaypointManager.MSG_ID_SYNC_CONTRAPTION, self::onMessage);
         reg.registerOnDetermineActiveWaypoint(self::onDetermineActiveWaypoint);
         reg.registerOnClientLevelTick(TickType.ON_SINGLE_TICK, self::onClientTick);
+        reg.registerOnDisconnectedFromServer(event -> {
+            self.trackedContraptions.clear();
+            self.staticContraptions.clear();
+            self.entityCreatedAt.clear();
+            self.staticCreatedAt.clear();
+        });
     }
 
 
