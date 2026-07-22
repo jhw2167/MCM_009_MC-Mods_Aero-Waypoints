@@ -310,9 +310,13 @@ public class WaypointManager {
         if (pid == null) return;
 
         Map<ITrackedContrap, Integer> colors = waypointColorsByPlayer.get(pid);
-        for (Integer colorId : colors.values()) {
-            MovingWaypoint.removeWaypoint(sp, calculateWaypointId(pid, colorId));
+        if (colors != null) {
+            for (Integer colorId : colors.values()) {
+                MovingWaypoint.removeWaypoint(sp, calculateWaypointId(pid, colorId));
+            }
+            colors.clear();
         }
+
         sendTrackedToClient(sp, null, null, "clear");
     }
 
@@ -619,11 +623,13 @@ public class WaypointManager {
 
     static void onPlayerJoin(ServerPlayer sp) {
         //for all managers, create a waypointColors entry
-        for (WaypointManager manager : managers.values()) {
+        for (WaypointManager mgr : managers.values()) {
             String playerId = PlayerUtil.getId(sp);
             if (playerId == null) continue;
-            manager.waypointColorsByPlayer.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
+            mgr.waypointColorsByPlayer.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
+            mgr.wipePlayerWaypoints(sp);
         }
+
     }
 
 
