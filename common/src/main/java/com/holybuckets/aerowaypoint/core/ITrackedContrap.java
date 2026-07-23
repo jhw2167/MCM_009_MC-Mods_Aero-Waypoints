@@ -1,6 +1,7 @@
 package com.holybuckets.aerowaypoint.core;
 
 import com.holybuckets.foundation.GeneralConfig;
+import com.holybuckets.foundation.HBUtil;
 import com.holybuckets.foundation.model.EntityLike;
 import net.blay09.mods.balm.api.Balm;
 import net.minecraft.core.BlockPos;
@@ -48,9 +49,11 @@ public interface ITrackedContrap extends EntityLike {
 
     Entity getContraptionEntity();
 
-    BlockPos getAnchorPos();
+    /** Current position of the entity, static or not **/
+    BlockPos getPos();
 
-    Vec3 getPos();
+    /** Gets the static pos from the last time the contraption was not active **/
+    BlockPos getSavedAnchorPos();
 
     UUID getContraptionUuid();
 
@@ -58,7 +61,7 @@ public interface ITrackedContrap extends EntityLike {
     @Override default UUID getUUID() { return getContraptionUuid(); }
 
     // EntityLike: current position is the contraption/sub-level position.
-    @Override default Vec3 position() { return getPos(); }
+    @Override default Vec3 position() { return HBUtil.BlockUtil.toVec3(getPos()); }
 
     // EntityLike: waypoints do not use orientation, so report none.
     @Override default float getYRot() { return 0f; }
@@ -76,7 +79,7 @@ public interface ITrackedContrap extends EntityLike {
 
     boolean isStatic();
 
-    void setStaticPositionStartTick(long tick);
+    void convertToStatic(long tick);
 
     static ITrackedContrap getContraption(EntityLike target) {
         return GENERATOR.get(0).generateContraption(target);

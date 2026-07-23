@@ -40,6 +40,8 @@ public class SableEntityResolverNeoForge implements SableEntityResolver {
 
     private static SubLevel lookup(Level level, UUID uuid) {
         SubLevelContainer container = SubLevelContainer.getContainer(level);
-        return container == null ? null : container.getSubLevel(uuid);
+        SubLevel l = (container == null) ? null : container.getSubLevel(uuid);
+        if(l != null && !l.isRemoved()) return l;
+        return null;
     }
 }

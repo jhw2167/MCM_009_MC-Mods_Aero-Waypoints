@@ -55,6 +55,7 @@ public class TrackedContrapForge implements ITrackedContrap {
     public TrackedContrapForge(SubLevel subLevel) {
         this();
         this.subLevel = subLevel;
+        if (subLevel != null) this.savedUuid = subLevel.getUniqueId();
     }
 
     // Sub-level ships are tracked by persistent UUID, not the live reference.
@@ -75,19 +76,31 @@ public class TrackedContrapForge implements ITrackedContrap {
         return this.contraption != null ? this.contraption.entity : null;
     }
 
-    @Override
-    public BlockPos getAnchorPos() {
-        if (this.contraption != null) return this.contraption.anchor;
-        if(this.subLevel != null) { return HBUtil.BlockUtil.toBlockPos( subLevelPos(this.subLevel)); }
-        if(this.savedAnchor!=null) return this.savedAnchor;
-        return this.staticPosition;
+    @Override   // we want to catch the last position of the entity if it suddenly becomes unviable
+    public BlockPos getPos() {
+        Vec3 innerPos = innerPos();
+        if(innerPos != null)
+            staticPosition = HBUtil.BlockUtil.toBlockPos(innerPos);
+        else
+            savedAnchor = staticPosition;
+
+        return staticPosition;
     }
 
     @Override
-    public Vec3 getPos() {
-        if (this.contraption != null && this.contraption.entity != null) return this.contraption.entity.position();
-        if (this.subLevel != null) return subLevelPos(this.subLevel);
-        return this.getAnchorPos().getCenter();
+    public BlockPos getSavedAnchorPos() {
+        return savedAnchor != null ? savedAnchor : staticPosition;
+    }
+
+
+    private Vec3 innerPos() {
+        if (contraption != null && contraption.entity != null && !contraption.entity.isRemoved())
+             return contraption.entity.position();
+        if (subLevel != null && !subLevel.isRemoved()) {
+            Vec3 pos = subLevelPos(subLevel);
+            if(pos.equals(Vec3.ZERO)) return null;
+        }
+        return null;
     }
 
     // World-space center of a sub-level's global bounding box.
@@ -162,7 +175,7 @@ public class TrackedContrapForge implements ITrackedContrap {
     }
 
     @Override
-    public void setStaticPositionStartTick(long tick) {
+    public void convertToStatic(long tick) {
         this.staticPositionStartTick = tick;
         this.contraption = null;
         this.subLevel = null;
@@ -186,7 +199,6 @@ public class TrackedContrapForge implements ITrackedContrap {
         TrackedContrapForge tc = new TrackedContrapForge();
         tc.id = id;
         tc.savedUuid = entityId;
-        tc.savedAnchor = lastPos;
         tc.staticPosition = lastPos;
         tc.staticPositionStartTick = -1;
         return tc;
@@ -199,7 +211,6 @@ public class TrackedContrapForge implements ITrackedContrap {
         this.contraption = ((TrackedContrapForge)newTc).contraption;
         this.subLevel = ((TrackedContrapForge)newTc).subLevel;
         this.savedUuid = newTc.getContraptionUuid();
-        this.savedAnchor = newTc.getAnchorPos();
         this.staticPositionStartTick = -1;
     }
 
@@ -210,6 +221,7 @@ public class TrackedContrapForge implements ITrackedContrap {
                 this.contraption = abc.getContraption();
         } else if(newTc instanceof SableSubLevelEntityLike sub) {
             this.subLevel = sub.getSubLevel();
+            if (this.subLevel != null) this.savedUuid = this.subLevel.getUniqueId();
         }
         this.staticPositionStartTick = -1;
     }
