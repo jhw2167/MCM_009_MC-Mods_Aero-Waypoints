@@ -138,6 +138,41 @@ public class WaypointManager {
         return null;
     }
 
+    // Command support: colorIds currently tracked for a player (used for tab suggestions).
+    public Set<Integer> getTrackedColorIds(ServerPlayer sp) {
+        String id = PlayerUtil.getId(sp);
+        if (id == null) return Set.of();
+        Map<ITrackedContrap, Integer> colors = waypointColorsByPlayer.get(id);
+        if (colors == null) return Set.of();
+        return new HashSet<>(colors.values());
+    }
+
+    // Command support: untrack the player's blimp with the given colorId.
+    public boolean untrackByColorId(ServerPlayer sp, int colorId) {
+        String id = PlayerUtil.getId(sp);
+        if (id == null) return false;
+        Map<ITrackedContrap, Integer> colors = waypointColorsByPlayer.get(id);
+        if (colors == null) return false;
+        ITrackedContrap target = null;
+        for (Map.Entry<ITrackedContrap, Integer> e : colors.entrySet()) {
+            if (e.getValue() != null && e.getValue() == colorId) { target = e.getKey(); break; }
+        }
+        return target != null && untrack(sp, target);
+    }
+
+    // Command support: untrack all of the player's blimps; returns how many were removed.
+    public int untrackAll(ServerPlayer sp) {
+        String id = PlayerUtil.getId(sp);
+        if (id == null) return 0;
+        Set<ITrackedContrap> set = trackedContraptions.get(id);
+        if (set == null || set.isEmpty()) return 0;
+        int count = 0;
+        for (ITrackedContrap tc : new ArrayList<>(set)) {
+            if (untrack(sp, tc)) count++;
+        }
+        return count;
+    }
+
     private synchronized int getNextColor() {
         int c = nextColorCounter % MovingWaypoint.MAX_COLORS;
         nextColorCounter++;
@@ -178,9 +213,15 @@ public class WaypointManager {
         }
 
         ITrackedContrap contraption = ITrackedContrap.getContraption(target);
-        if (contraption == null) return;
-        if (staticContraptions.containsKey(contraption.getSavedAnchorPos()))
-            this.tryReactivateStatic(target, contraption.getSavedAnchorPos());
+        if (contraption == null || contraption.getPos()==null) return;
+        List<BlockPos> localPos = new ArrayList<>();
+        BlockPos containingPos = BlockPos.ZERO;
+        for(BlockPos bp : Constants.LOCAL_POINTS) {
+            if( staticContraptions.containsKey( bp.offset(contraption.getPos())) );
+                containingPos = bp.offset(contraption.getPos());
+        }
+        if (staticContraptions.containsKey(containingPos))
+            this.tryReactivateStatic(target, containingPos);
         else
             this.track(sp, contraption);
     }

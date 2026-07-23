@@ -25,6 +25,7 @@ public class CommonClass {
         //RegisterConfigs
         AeroWaypointsMain.INSTANCE = new AeroWaypointsMain();
         BalmEventRegister.registerEvents();
+        com.holybuckets.aerowaypoint.command.CommandList.register();
         BalmEventRegister.registerCommands();
         //ModBlocks.initialize(Balm.getBlocks());
         //ModBlockEntities.initialize(Balm.getBlockEntities());

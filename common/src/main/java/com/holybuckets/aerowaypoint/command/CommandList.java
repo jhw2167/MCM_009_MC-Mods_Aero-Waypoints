@@ -2,94 +2,100 @@ package com.holybuckets.aerowaypoint.command;
 
 //Project imports
 
-import com.holybuckets.foundation.HBUtil;
+import com.holybuckets.aerowaypoint.core.WaypointManager;
 import com.holybuckets.foundation.event.CommandRegistry;
-import com.holybuckets.aerowaypoint.LoggerProject;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.*;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-
-import java.util.List;
 
 public class CommandList {
 
     public static final String CLASS_ID = "033";
-    private static final String PREFIX = "hbTemples";
+    private static final String PREFIX = "hb";
 
     public static void register() {
-        CommandRegistry.register(LocateClusters::noArgs);
-        CommandRegistry.register(LocateClusters::limitCount);
-        CommandRegistry.register(LocateClusters::limitCountSpecifyBlockType);
+        CommandRegistry.register(FindMyBlimp::delete);
+        CommandRegistry.register(FindMyBlimp::deleteAll);
     }
 
-    //1. Locate Clusters
-    private static class LocateClusters
-    {
-        // Register the base command with no arguments
-        private static LiteralArgumentBuilder<CommandSourceStack> noArgs() {
-            return Commands.literal(PREFIX)
-                .then(Commands.literal("locateClusters")
-                    .executes(context -> execute(context.getSource(), -1, null)) // Default case (no args)
-                );
+    // Suggests the colorIds of the player's currently tracked blimps.
+    private static final SuggestionProvider<CommandSourceStack> BLIMP_ID_SUGGESTIONS =
+        (context, builder) -> {
+            if (!(context.getSource().getEntity() instanceof ServerPlayer sp)) {
+                return SharedSuggestionProvider.suggest(new String[0], builder);
+            }
+            WaypointManager mgr = WaypointManager.get(sp.level());
+            if (mgr == null) return SharedSuggestionProvider.suggest(new String[0], builder);
+            return SharedSuggestionProvider.suggest(
+                mgr.getTrackedColorIds(sp).stream().map(i -> Integer.toString(i)), builder);
+        };
 
-        }
+    //1. /hb findMyBlimp delete <id> | deleteAll
+    private static class FindMyBlimp {
 
-        // Register command with count argument
-        private static LiteralArgumentBuilder<CommandSourceStack> limitCount() {
+        // /hb findMyBlimp delete <id>
+        private static LiteralArgumentBuilder<CommandSourceStack> delete() {
             return Commands.literal(PREFIX)
-                .then(Commands.literal("locateClusters")
-                    .then(Commands.argument("count", IntegerArgumentType.integer(1))
-                        .executes(context -> {
-                            int count = IntegerArgumentType.getInteger(context, "count");
-                            return execute(context.getSource(), count, null);
-                        })
-                    )
-            );
-        }
-
-        // Register command with both count and blockType OR just blockType
-        private static LiteralArgumentBuilder<CommandSourceStack> limitCountSpecifyBlockType() {
-            return Commands.literal(PREFIX)
-                .then(Commands.literal("locateClusters")
-                    .then(Commands.argument("count", IntegerArgumentType.integer(1))
-                        .then(Commands.argument("blockType", StringArgumentType.string())
-                            .executes(context -> {
-                                int count = IntegerArgumentType.getInteger(context, "count");
-                                String blockType = StringArgumentType.getString(context, "blockType");
-                                return execute(context.getSource(), count, blockType);
-                            })
+                .then(Commands.literal("findMyBlimp")
+                    .then(Commands.literal("delete")
+                        .then(Commands.argument("id", IntegerArgumentType.integer(0))
+                            .suggests(BLIMP_ID_SUGGESTIONS)
+                            .executes(context -> executeDelete(context.getSource(),
+                                IntegerArgumentType.getInteger(context, "id")))
                         )
                     )
-                    .then(Commands.argument("blockType", StringArgumentType.string())
-                        .executes(context -> {
-                            String blockType = StringArgumentType.getString(context, "blockType");
-                            return execute(context.getSource(), -1, blockType);
-                        })
-                    )
-            );
+                );
         }
 
+        // /hb findMyBlimp deleteAll
+        private static LiteralArgumentBuilder<CommandSourceStack> deleteAll() {
+            return Commands.literal(PREFIX)
+                .then(Commands.literal("findMyBlimp")
+                    .then(Commands.literal("deleteAll")
+                        .executes(context -> executeDeleteAll(context.getSource()))
+                    )
+                );
+        }
 
-        private static int execute(CommandSourceStack source, int count, String blockType)
-        {
-
-            LoggerProject.logDebug("010001", "Locate Clusters Command");
+        private static int executeDelete(CommandSourceStack source, int id) {
+            if (!(source.getEntity() instanceof ServerPlayer player)) {
+                source.sendFailure(Component.literal("This command can only be used by players"));
+                return 0;
+            }
+            WaypointManager mgr = WaypointManager.get(player.level());
+            if (mgr == null) {
+                source.sendFailure(Component.literal("No waypoint manager for this level"));
+                return 0;
+            }
+            if (mgr.untrackByColorId(player, id)) {
+                source.sendSuccess(() -> Component.literal("Removed blimp waypoint " + id), false);
+                return 1;
+            }
+            source.sendFailure(Component.literal("No blimp waypoint with id " + id));
             return 0;
         }
 
-
+        private static int executeDeleteAll(CommandSourceStack source) {
+            if (!(source.getEntity() instanceof ServerPlayer player)) {
+                source.sendFailure(Component.literal("This command can only be used by players"));
+                return 0;
+            }
+            WaypointManager mgr = WaypointManager.get(player.level());
+            if (mgr == null) {
+                source.sendFailure(Component.literal("No waypoint manager for this level"));
+                return 0;
+            }
+            int count = mgr.untrackAll(player);
+            source.sendSuccess(() -> Component.literal("Removed " + count + " blimp waypoint(s)"), false);
+            return 1;
+        }
     }
     //END COMMAND
-
 
 }
 //END CLASS COMMANDLIST

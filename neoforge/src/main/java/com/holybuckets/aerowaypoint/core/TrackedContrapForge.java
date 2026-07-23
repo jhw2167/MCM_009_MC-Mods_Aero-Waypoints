@@ -98,7 +98,7 @@ public class TrackedContrapForge implements ITrackedContrap {
              return contraption.entity.position();
         if (subLevel != null && !subLevel.isRemoved()) {
             Vec3 pos = subLevelPos(subLevel);
-            if(pos.equals(Vec3.ZERO)) return null;
+            if(!pos.equals(Vec3.ZERO)) return pos;
         }
         return null;
     }
